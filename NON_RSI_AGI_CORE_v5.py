@@ -1312,6 +1312,10 @@ class Orchestrator:
         if proposal.level == "L0":
             assert isinstance(candidate, dict), "candidate missing"
             assert candidate.get("gid"), "candidate gid missing"
+        if proposal.level == "L1":
+            assert isinstance(proposal.payload.get("evaluation_update"), dict), "evaluation_update missing"
+        if proposal.level == "L2":
+            assert isinstance(proposal.payload.get("meta_update"), dict), "meta_update missing"
         packet = {
             "proposal": asdict(proposal),
             "evaluation_rules": dict(self.evaluation_rules),
@@ -1562,6 +1566,16 @@ class Orchestrator:
             self.candidate_queue.extend(self._omega_generate_candidates(gap_spec))
 
         l1_update = self._apply_l1_update()
+        if l1_update:
+            l1_proposal = RuleProposal(
+                proposal_id=stable_hash({"level": "L1", "payload": l1_update, "round": round_idx}),
+                level="L1",
+                payload={"evaluation_update": dict(l1_update)},
+                creator_key=stable_hash({"source": "l1", "round": round_idx}),
+                created_ms=now_ms(),
+                evidence={"l1_update": dict(l1_update)},
+            )
+            self.candidate_queue.append(l1_proposal)
 
         l2_proposal = self._propose_l2_update(round_idx, force=force_meta_proposal or stagnation)
         if l2_proposal:
@@ -1662,7 +1676,8 @@ def run_full_system_selftest() -> None:
     tools.register("evaluate_candidate", tool_evaluate_candidate)
     tools.register("tool_build_report", tool_tool_build_report)
 
-    assert (round_out := orch.run_recursive_cycle(0, stagnation_override=True, force_meta_proposal=True))
+    orch.run_recursive_cycle(0, stagnation_override=True, force_meta_proposal=True)
+    assert (round_out := orch.run_recursive_cycle(1, stagnation_override=True, force_meta_proposal=True))
     assert round_out["stagnation"] is True
     assert "gap_spec" in round_out and isinstance(round_out["gap_spec"], dict)
     assert "constraints" in round_out["gap_spec"] and isinstance(round_out["gap_spec"]["constraints"], dict)
@@ -1674,6 +1689,7 @@ def run_full_system_selftest() -> None:
     assert all("verdict" in item for item in round_out["critic_results"])
     assert all("proposal_id" in item for item in round_out["critic_results"])
     assert any(item["level"] == "L0" for item in round_out["critic_results"])
+    assert any(item["level"] == "L1" for item in round_out["critic_results"])
     assert any(item["level"] == "L2" for item in round_out["critic_results"])
     assert all(
         (not item.get("adopted", False)) or item.get("verdict") == "approve"
@@ -1737,6 +1753,22 @@ def run_contract_negative_tests() -> None:
     assert proposals
     proposal = proposals[0]
     verdict = orch._critic_evaluate(proposal)
+    l1_proposal = RuleProposal(
+        proposal_id="l1_negative",
+        level="L1",
+        payload={"evaluation_update": {"min_score": 0.5}},
+        creator_key="creator",
+        created_ms=now_ms(),
+    )
+    l2_proposal = RuleProposal(
+        proposal_id="l2_negative",
+        level="L2",
+        payload={"meta_update": {"l1_update_rate": 0.1}},
+        creator_key="creator",
+        created_ms=now_ms(),
+    )
+    l1_verdict = orch._critic_evaluate(l1_proposal)
+    l2_verdict = orch._critic_evaluate(l2_proposal)
 
     def validate_critic_verdict(result: Dict[str, Any]) -> None:
         assert "verdict" in result, "verdict missing"
@@ -1800,6 +1832,52 @@ def run_contract_negative_tests() -> None:
         ),
         (AssertionError,),
         "candidate gid missing",
+    )
+    expect_failure(
+        lambda: orch._critic_evaluate(
+            RuleProposal(
+                proposal_id="l1_missing_update",
+                level="L1",
+                payload={},
+                creator_key="creator",
+                created_ms=now_ms(),
+            )
+        ),
+        (AssertionError,),
+        "evaluation_update missing",
+    )
+    expect_failure(
+        lambda: orch._critic_evaluate(
+            RuleProposal(
+                proposal_id="l2_missing_update",
+                level="L2",
+                payload={},
+                creator_key="creator",
+                created_ms=now_ms(),
+            )
+        ),
+        (AssertionError,),
+        "meta_update missing",
+    )
+    expect_failure(
+        lambda: adopt_with_contract(l1_proposal, {**l1_verdict, "verdict": "reject"}),
+        (ValueError,),
+        "verdict not approved",
+    )
+    expect_failure(
+        lambda: adopt_with_contract(l1_proposal, {"verdict": "approve"}),
+        (ValueError,),
+        "approval_key missing",
+    )
+    expect_failure(
+        lambda: adopt_with_contract(l2_proposal, {**l2_verdict, "verdict": "reject"}),
+        (ValueError,),
+        "verdict not approved",
+    )
+    expect_failure(
+        lambda: adopt_with_contract(l2_proposal, {"verdict": "approve"}),
+        (ValueError,),
+        "approval_key missing",
     )
     expect_failure(
         lambda: adopt_with_contract(proposal, {**verdict, "verdict": "reject"}),
