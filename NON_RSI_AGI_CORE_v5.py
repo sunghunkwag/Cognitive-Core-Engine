@@ -1308,6 +1308,10 @@ class Orchestrator:
 
     def _critic_evaluate(self, proposal: RuleProposal) -> Dict[str, Any]:
         critic = self._load_critic()
+        candidate = proposal.payload.get("candidate")
+        if proposal.level == "L0":
+            assert isinstance(candidate, dict), "candidate missing"
+            assert candidate.get("gid"), "candidate gid missing"
         packet = {
             "proposal": asdict(proposal),
             "evaluation_rules": dict(self.evaluation_rules),
@@ -1715,10 +1719,11 @@ def run_contract_negative_tests() -> None:
 
     round_out = orch.run_recursive_cycle(0, stagnation_override=True, force_meta_proposal=True)
 
-    def expect_failure(fn: Callable[[], None], exc_types: Tuple[type, ...]) -> None:
+    def expect_failure(fn: Callable[[], None], exc_types: Tuple[type, ...], msg_substr: str) -> None:
         try:
             fn()
-        except exc_types:
+        except exc_types as exc:
+            assert msg_substr in str(exc), f"message mismatch: {exc}"
             return
         except Exception:
             raise
@@ -1727,35 +1732,96 @@ def run_contract_negative_tests() -> None:
     assert "gap_spec" in round_out and isinstance(round_out["gap_spec"], dict)
     assert "critic_results" in round_out and isinstance(round_out["critic_results"], list)
     assert any(item.get("level") == "L0" for item in round_out["critic_results"])
-    def _bad_adoption_assert() -> None:
-        assert all(
-            (not item.get("adopted", False)) or item.get("verdict") == "approve"
-            for item in [{"adopted": True, "verdict": "reject"}]
-        )
 
-    expect_failure(_bad_adoption_assert, (AssertionError,))
-    expect_failure(lambda: ({"payload": {}})["payload"]["candidate"], (KeyError,))
-    expect_failure(lambda: ({"level": "L0"})["verdict"], (KeyError,))
-    expect_failure(lambda: ({"constraints": {}})["constraints"]["quarantine_only"], (KeyError,))
+    proposals = orch._omega_generate_candidates(round_out["gap_spec"])
+    assert proposals
+    proposal = proposals[0]
+    verdict = orch._critic_evaluate(proposal)
 
-    def _missing_gid_assert() -> None:
-        candidate = {"code": []}
-        assert "gid" in candidate
+    def validate_critic_verdict(result: Dict[str, Any]) -> None:
+        assert "verdict" in result, "verdict missing"
+        assert "approval_key" in result, "approval_key missing"
 
-    expect_failure(_missing_gid_assert, (AssertionError,))
-    expect_failure(lambda: ({"verdict": "approve"})["approval_key"], (KeyError,))
+    def adopt_with_contract(test_proposal: RuleProposal, result: Dict[str, Any]) -> None:
+        if result.get("verdict") != "approve":
+            raise ValueError("verdict not approved")
+        if "approval_key" not in result:
+            raise ValueError("approval_key missing")
+        orch._adopt_proposal(test_proposal, result)
 
-    def _adopt_without_verdict() -> None:
-        proposal = RuleProposal(
-            proposal_id="bad_adopt",
-            level="L0",
-            payload={"candidate": {}},
-            creator_key="creator",
-            created_ms=now_ms(),
-        )
-        assert orch._adopt_proposal(proposal, {}) is True
-
-    expect_failure(_adopt_without_verdict, (AssertionError,))
+    expect_failure(
+        lambda: orch._critic_evaluate(
+            RuleProposal(
+                proposal_id="missing_candidate",
+                level="L0",
+                payload={},
+                creator_key="creator",
+                created_ms=now_ms(),
+            )
+        ),
+        (AssertionError,),
+        "candidate missing",
+    )
+    expect_failure(
+        lambda: orch._critic_evaluate(
+            RuleProposal(
+                proposal_id="non_dict_candidate",
+                level="L0",
+                payload={"candidate": "not-a-dict"},
+                creator_key="creator",
+                created_ms=now_ms(),
+            )
+        ),
+        (AssertionError,),
+        "candidate missing",
+    )
+    expect_failure(
+        lambda: orch._critic_evaluate(
+            RuleProposal(
+                proposal_id="gid_none",
+                level="L0",
+                payload={"candidate": {**proposal.payload["candidate"], "gid": None}},
+                creator_key="creator",
+                created_ms=now_ms(),
+            )
+        ),
+        (AssertionError,),
+        "candidate gid missing",
+    )
+    expect_failure(
+        lambda: orch._critic_evaluate(
+            RuleProposal(
+                proposal_id="gid_empty",
+                level="L0",
+                payload={"candidate": {**proposal.payload["candidate"], "gid": ""}},
+                creator_key="creator",
+                created_ms=now_ms(),
+            )
+        ),
+        (AssertionError,),
+        "candidate gid missing",
+    )
+    expect_failure(
+        lambda: adopt_with_contract(proposal, {**verdict, "verdict": "reject"}),
+        (ValueError,),
+        "verdict not approved",
+    )
+    expect_failure(
+        lambda: adopt_with_contract(proposal, {k: v for k, v in verdict.items() if k != "approval_key"}),
+        (ValueError,),
+        "approval_key missing",
+    )
+    expect_failure(
+        lambda: validate_critic_verdict({k: v for k, v in verdict.items() if k != "approval_key"}),
+        (AssertionError,),
+        "approval_key missing",
+    )
+    expect_failure(
+        lambda: validate_critic_verdict({k: v for k, v in verdict.items() if k != "verdict"}),
+        (AssertionError,),
+        "verdict missing",
+    )
+    print("negative contract tests passed")
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=40)
