@@ -69,3 +69,7 @@ python analyze_results.py
 ## Status
 
 Research/engineering hybrid. Governance-gated architecture with rollback.
+
+## License
+
+MIT License
