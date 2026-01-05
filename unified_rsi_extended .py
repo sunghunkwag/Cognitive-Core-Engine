@@ -165,6 +165,7 @@ def critic_evaluate_candidate_packet(
     max_gap = float(evaluation_rules.get("max_generalization_gap", 0.05))
     min_adversarial = float(evaluation_rules.get("min_adversarial_pass_rate", min_holdout))
     min_shift_holdout = float(evaluation_rules.get("min_shift_holdout_pass_rate", min_holdout))
+    max_holdout_cost = float(evaluation_rules.get("max_holdout_discovery_cost", 4.0))
     require_holdout_metrics = bool(evaluation_rules.get("require_holdout_metrics", False))
 
     evidence_count = 0
@@ -197,6 +198,10 @@ def critic_evaluate_candidate_packet(
     if shift_holdout_rate is not None and shift_holdout_rate < min_shift_holdout:
         shift_ok = False
 
+    holdout_cost_ok = True
+    if require_holdout_metrics:
+        holdout_cost_ok = holdout_cost is not None and holdout_cost <= max_holdout_cost
+
     regression_ok = True
     baseline = metrics.get("baseline")
     if isinstance(baseline, dict):
@@ -221,18 +226,15 @@ def critic_evaluate_candidate_packet(
         else:
             meta_ok = float(bounds[0]) <= float(proposed_rate) <= float(bounds[1])
 
-    verdict = (
-        "approve"
-        if score >= min_score
-        and evidence_ok
-        and meta_ok
-        and holdout_ok
+    guardrails_ok = (
+        holdout_ok
         and gap_ok
         and adversarial_ok
         and shift_ok
         and regression_ok
-        else "reject"
+        and holdout_cost_ok
     )
+    verdict = "approve" if score >= min_score and evidence_ok and meta_ok and guardrails_ok else "reject"
     approval_key = sha256(f"{proposal.get('proposal_id', '')}:{level}:{score}")[:12]
     return {
         "verdict": verdict,
@@ -252,6 +254,8 @@ def critic_evaluate_candidate_packet(
         "adversarial_ok": adversarial_ok,
         "shift_ok": shift_ok,
         "regression_ok": regression_ok,
+        "holdout_cost_ok": holdout_cost_ok,
+        "guardrails_ok": guardrails_ok,
     }
 
 

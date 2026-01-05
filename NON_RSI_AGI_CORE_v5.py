@@ -1215,6 +1215,7 @@ class Orchestrator:
             "discovery_cost_penalty": 0.08,
             "min_adversarial_pass_rate": 0.28,
             "min_shift_holdout_pass_rate": 0.25,
+            "max_holdout_discovery_cost": 4.0,
             "require_holdout_metrics": True,
         }
         self.meta_rules: Dict[str, Any] = {
@@ -1992,6 +1993,8 @@ def run_contract_negative_tests() -> None:
         )
     )
     assert high_cost_verdict["verdict"] == "reject"
+    assert high_cost_verdict.get("holdout_cost_ok") is False
+    assert high_cost_verdict.get("guardrails_ok") is False
     print("negative contract tests passed")
 
 
