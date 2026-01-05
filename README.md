@@ -1,60 +1,71 @@
-# Cognitive-Core-Engine Test 
+# Cognitive-Core-Engine-Test
 
-Production-style integration of a fixed orchestrator (NON-RSI core) with two plugins:
-- Invention plugin (Omega Forge) invoked ONLY on stagnation
-- Governance/Evaluation gate (Unified RSI Extended) that decides adoption (Critic-only)
+Multi-module architecture integrating fixed cognitive core with invention and governance layers.
 
-## Non-Negotiable Architecture (Source of Truth)
+## Architecture
 
-1) **NON_RSI_AGI_CORE_v5.py** is the ONLY orchestrator and main loop owner.
-2) **omega_forge_two_stage_feedback.py** is an invention plugin. It must be called ONLY when stagnation is declared by the orchestrator.
-3) **UNIFIED_RSI_EXTENDED.py** is a governance/evaluation gate. It validates candidates and returns a verdict.  
-   - Creator proposes. **Critic adopts.** No self-adoption by the invention module.
+Three-module system with strict separation of concerns:
 
-**Integration goal:** Do NOT merge files. Implement a deterministic call chain:
-`B (Orchestrator) -> Omega (Invention on stagnation) -> Unified (Critic gate) -> B (register/reject)`
+1. **NON_RSI_AGI_CORE_v5.py** - Fixed orchestrator (main loop owner)
+   - Hyperdimensional Computing (HDC) with 10,000-bit vectors
+   - Majority-rule bundling for neuro-symbolic memory
+   - World model: feature-based Q-value estimation with experience replay
+   - Planner: beam search over world model (depth=3, width=6)
+   - Skill DSL: data-level interpreted programs (call/if/foreach)
+   - Multi-agent orchestrator with project graph
 
-## Contracts (Data Interfaces)
+2. **omega_forge_two_stage_feedback.py** - Invention plugin (invoked on stagnation)
+   - Structural-transition discovery via CFG analysis
+   - Virtual machine: 8 registers, 64 memory cells, 21 opcodes
+   - Detector: multi-stage control flow novelty (CFG edit distance, SCC analysis)
+   - Curriculum: warmup phase with relaxed constraints
+   - Crash-safe JSONL evidence logging
 
-We integrate via two JSON-serializable contracts:
+3. **unified_rsi_extended.py** - Governance/evaluation gate (critic-only adoption)
+   - Pre-filtering and stress-checking of candidates
+   - Expandable grammar for invention representation
+   - Blackboard JSONL logging for multi-loop coordination
 
-### Contract A: GapSpec (Orchestrator -> Omega)
-A structured request describing the current capability gap and constraints.
+## Integration
 
-### Contract B: CandidatePacket (Omega -> Unified -> Orchestrator)
-A structured artifact packet containing:
-- candidate code/artifact
-- evidence: train/hold/stress/transfer cases
-- metrics and constraints
-- critic verdict
+Call chain: `Orchestrator -> Omega (on stagnation) -> Unified (critic) -> Orchestrator (register/reject)`
 
-## Work Rules for Codex (Strict)
+- **Contract A (GapSpec)**: Orchestrator -> Omega capability gap specification
+- **Contract B (CandidatePacket)**: Omega -> Unified -> Orchestrator artifact + evidence + verdict
 
-- Do NOT treat the largest file as the main architecture. The main loop owner is NON_RSI_AGI_CORE_v5.py.
-- Do NOT merge these three files into a single monolithic file.
-- Do NOT create new folders or “adapter/bridge/helper” modules.
-- Do NOT add external dependencies.
-- Keep changes minimal and localized. Prefer adding glue functions to the orchestrator.
+No file merging. No self-adoption by invention module.
 
-### Allowed Changes (Scope)
-- Modify `NON_RSI_AGI_CORE_v5.py` to add:
-  1) stagnation detection
-  2) GapSpec builder
-  3) Omega invocation (import or subprocess; choose one)
-  4) Unified evaluation call and verdict handling
-- Optional: add ONE small helper function in Omega/Unified to export/ingest the packets (no new files).
+## Technical Details
 
-### Output Requirements
-- Provide a short integration plan (<= 30 lines).
-- Provide patch/diff-style edits only.
-- Add a minimal self-test in `NON_RSI_AGI_CORE_v5.py` that:
-  - simulates stagnation,
-  - invokes Omega once,
-  - sends one candidate to Unified for evaluation,
-  - prints the final verdict.
+**HDC Memory**: Associative retrieval using bundled hypervectors with:
+- Token encoding cache (~8000 items)
+- Similarity threshold: 0.48 (random baseline: 0.5)
+- Recency weighting, reward boosting
 
-If any constraint cannot be satisfied, stop and explain why rather than inventing a new architecture.
+**Structural Discovery**: CFG-based novelty detection with:
+- Edit distance K (warmup: 3, strict: 6)
+- Active subsequence length L (warmup: 8, strict: 10)
+- Minimum coverage: 0.55
+- Reproducibility: N=4 trials, max CFG variants: 2
 
-## Repository Status
-Research/engineering hybrid. Safety via governance gate and rollback mindset.
+**World Model**: TD-learning with:
+- Non-linear feature combinations
+- Experience replay buffer (200 samples)
+- Gamma: 0.9, LR: 0.08
 
+## Usage
+
+```bash
+# Run fixed core
+python NON_RSI_AGI_CORE_v5.py --rounds 40 --agents 8
+
+# Run invention engine
+python omega_forge_two_stage_feedback.py evidence_run --target 6 --max_generations 2000
+
+# Analyze results
+python analyze_results.py
+```
+
+## Status
+
+Research/engineering hybrid. Governance-gated architecture with rollback.
