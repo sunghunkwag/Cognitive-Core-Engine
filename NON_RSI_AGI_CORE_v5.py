@@ -1658,7 +1658,16 @@ def run_full_system_selftest() -> None:
     tools.register("evaluate_candidate", tool_evaluate_candidate)
     tools.register("tool_build_report", tool_tool_build_report)
 
-    orch.run_recursive_cycle(0, stagnation_override=True, force_meta_proposal=True)
+    assert (round_out := orch.run_recursive_cycle(0, stagnation_override=True, force_meta_proposal=True))
+    assert round_out["stagnation"] is True
+    assert round_out["gap_spec"] is not None
+    assert round_out["gap_spec"]["constraints"]["quarantine_only"] is True
+    assert round_out["gap_spec"]["constraints"]["no_self_adoption"] is True
+    assert round_out["critic_results"]
+    assert all("verdict" in item for item in round_out["critic_results"])
+    assert all("proposal_id" in item for item in round_out["critic_results"])
+    assert any(item["level"] == "L0" for item in round_out["critic_results"])
+    assert any(item["level"] == "L2" for item in round_out["critic_results"])
     print("recursive rule loop executed")
     print("critic decision received")
 
