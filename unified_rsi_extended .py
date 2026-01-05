@@ -141,14 +141,25 @@ def critic_evaluate_candidate_packet(
     cost_penalty = float(evaluation_rules.get("discovery_cost_penalty", 0.08))
     gap = None
     score = hash_score
+    score_components = {
+        "holdout_term": None,
+        "gap_penalty": 0.0,
+        "cost_penalty": 0.0,
+        "hash_score": hash_score,
+    }
     if holdout_rate is not None:
         if train_rate is not None:
             gap = abs(train_rate - holdout_rate)
         score = holdout_weight * holdout_rate
+        score_components["holdout_term"] = score
         if gap is not None:
-            score -= gap_penalty * gap
+            penalty = gap_penalty * gap
+            score -= penalty
+            score_components["gap_penalty"] = penalty
         if holdout_cost is not None:
-            score -= cost_penalty * holdout_cost
+            penalty = cost_penalty * holdout_cost
+            score -= penalty
+            score_components["cost_penalty"] = penalty
 
     min_holdout = float(evaluation_rules.get("min_holdout_pass_rate", 0.3))
     max_gap = float(evaluation_rules.get("max_generalization_gap", 0.05))
@@ -227,6 +238,7 @@ def critic_evaluate_candidate_packet(
         "verdict": verdict,
         "score": score,
         "hash_score": hash_score,
+        "score_components": score_components,
         "approval_key": approval_key,
         "level": level,
         "min_score": min_score,

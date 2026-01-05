@@ -1945,6 +1945,11 @@ def run_contract_negative_tests() -> None:
                 "train_pass_rate": 0.34,
                 "holdout_pass_rate": 0.31,
                 "adversarial_pass_rate": 0.20,
+                "adversarial_examples": [
+                    {"input": [3, -2, 7], "expected": [7, -2, 3], "prediction": [3, 7, -2]},
+                    {"input": [4, 4, 1], "expected": [1, 4, 4], "prediction": [4, 1, 4]},
+                    {"input": [-1, 5, 2], "expected": [2, 5, -1], "prediction": [-1, 2, 5]},
+                ],
             }
         )
     )
@@ -1956,6 +1961,11 @@ def run_contract_negative_tests() -> None:
                 "train_pass_rate": 0.34,
                 "holdout_pass_rate": 0.31,
                 "distribution_shift": {"holdout_pass_rate": 0.18},
+                "distribution_shift_examples": [
+                    {"input": [9, -4, 0, 3], "expected": [3, 0, -4, 9], "prediction": [9, 3, 0, -4]},
+                    {"input": [2, -5, 6, -1], "expected": [-1, 6, -5, 2], "prediction": [2, -1, -5, 6]},
+                    {"input": [8, 1, 1, -2], "expected": [-2, 1, 1, 8], "prediction": [8, 1, -2, 1]},
+                ],
             }
         )
     )
