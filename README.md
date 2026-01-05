@@ -56,15 +56,19 @@ No file merging. No self-adoption by invention module.
 ## Usage
 
 ```bash
+# Reproduce evidence logs + summary
+python scripts/run_results.py
+
 # Run fixed core
 python NON_RSI_AGI_CORE_v5.py --rounds 40 --agents 8
 
-# Run invention engine
-python omega_forge_two_stage_feedback.py evidence_run --target 6 --max_generations 2000
-
-# Analyze results
-python analyze_results.py
+# Run Omega Forge two-stage pipeline
+python omega_forge_two_stage_feedback.py full --stage1_gens 200 --stage2_gens 200 --seed 42
 ```
+
+> Note: The critic module is `unified_rsi_extended.py`. The core loader includes a fallback
+> for the historical filename with a trailing space, but the canonical filename is the
+> space-free version.
 
 ## Status
 
