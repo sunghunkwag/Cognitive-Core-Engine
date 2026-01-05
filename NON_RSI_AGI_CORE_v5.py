@@ -1663,12 +1663,18 @@ def run_full_system_selftest() -> None:
     assert "gap_spec" in round_out and isinstance(round_out["gap_spec"], dict)
     assert "constraints" in round_out["gap_spec"] and isinstance(round_out["gap_spec"]["constraints"], dict)
     assert "quarantine_only" in round_out["gap_spec"]["constraints"]
+    assert round_out["gap_spec"]["constraints"]["quarantine_only"] is True
     assert "no_self_adoption" in round_out["gap_spec"]["constraints"]
+    assert round_out["gap_spec"]["constraints"]["no_self_adoption"] is True
     assert round_out["critic_results"]
     assert all("verdict" in item for item in round_out["critic_results"])
     assert all("proposal_id" in item for item in round_out["critic_results"])
     assert any(item["level"] == "L0" for item in round_out["critic_results"])
     assert any(item["level"] == "L2" for item in round_out["critic_results"])
+    assert all(
+        (not item.get("adopted", False)) or item.get("verdict") == "approve"
+        for item in round_out["critic_results"]
+    )
     print("recursive rule loop executed")
     print("critic decision received")
 
@@ -1679,7 +1685,7 @@ def run_full_system_selftest() -> None:
         [x[1][0] * w[0][0] + x[1][1] * w[1][0]],
     ]
     assert len(y) == 2 and len(y[0]) == 1
-    print("pytorch execution verified")
+    print("tensor execution verified (torch-free)")
 
 
 def run_torch_smoke_test() -> None:
@@ -1688,6 +1694,7 @@ def run_torch_smoke_test() -> None:
     x = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
     y = x @ torch.tensor([[1.0], [1.0]])
     assert y.shape == (2, 1)
+    print("pytorch execution verified")
 
 
 def main() -> None:
