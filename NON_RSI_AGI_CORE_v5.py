@@ -70,7 +70,10 @@ def tokenize(text: str) -> List[str]:
 
 
 def load_unified_critic_module() -> Any:
-    module_path = Path(__file__).with_name("unified_rsi_extended .py")
+    module_path = Path(__file__).with_name("unified_rsi_extended.py")
+    legacy_path = Path(__file__).with_name("unified_rsi_extended .py")
+    if not module_path.exists() and legacy_path.exists():
+        module_path = legacy_path
     spec = importlib.util.spec_from_file_location("unified_rsi_extended", module_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load critic module from {module_path}")
