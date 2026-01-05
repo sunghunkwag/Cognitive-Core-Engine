@@ -269,7 +269,4 @@ Evidence source: `logs/blackboard.jsonl`.
 - The unified critic enforces guardrails (rejects on missing holdout metrics) and can approve qualifying packets.
 - A minimal end-to-end loop from orchestrator to Omega, critic, and back executes with traceable logs.
 
-## What this does **not** prove
-- It does **not** demonstrate general AGI capability or open-ended autonomous self-improvement.
-- It does **not** show large-scale performance gains or long-horizon training.
-- It does **not** establish robustness beyond the guardrails and short deterministic runs shown above.
+
